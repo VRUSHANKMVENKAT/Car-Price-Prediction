@@ -1,0 +1,10 @@
+# Car Price Prediction with Machine Learning - Python dependencies
+# Install with:  pip install -r requirements.txt
+
+streamlit
+pandas
+numpy
+scikit-learn
+joblib
+matplotlib
+seaborn

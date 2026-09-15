@@ -1,0 +1,8 @@
+Variable,Category,Average_Selling_Price,Count
+Fuel_Type,CNG,3.1,2
+Fuel_Type,Diesel,10.102758620689656,58
+Fuel_Type,Petrol,3.26418410041841,239
+Selling_type,Dealer,6.632020725388601,193
+Selling_type,Individual,0.8709433962264151,106
+Transmission,Automatic,9.071794871794872,39
+Transmission,Manual,3.917307692307692,260

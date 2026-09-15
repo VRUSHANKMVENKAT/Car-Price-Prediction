@@ -1,0 +1,89 @@
+CAR PRICE PREDICTION - FINAL MODEL REPORT
+==========================================
+
+DATASET
+-------
+Source file: car data.csv (never modified)
+Rows after cleaning (duplicates removed): 299
+Columns: 10 (Car_Name, Year, Selling_Price, Present_Price, Driven_kms,
+Fuel_Type, Selling_type, Transmission, Owner, Car_Age)
+
+FEATURES USED (inputs)
+----------------------
+Numerical:    Present_Price, Driven_kms, Owner, Car_Age
+Categorical:  Fuel_Type, Selling_type, Transmission (one-hot encoded)
+Excluded:     Selling_Price (target - would leak the answer),
+              Car_Name (98 categories incl. bikes -> overfitting risk),
+              Year (Car_Age already represents age)
+
+TARGET VARIABLE
+---------------
+Selling_Price (in Lakhs) - a regression problem.
+
+TRAIN/TEST SPLIT
+----------------
+test_size = 0.20, random_state = 42
+Training rows: 239   Testing rows: 60
+Preprocessing (imputers + one-hot encoder) sits INSIDE the pipeline and
+was fitted on training data only, avoiding data leakage.
+
+MODELS TESTED
+-------------
+            Model    MAE   RMSE     R2
+Linear Regression 1.4725 2.5245 0.7527
+    Random Forest 1.5320 3.6947 0.4703
+Gradient Boosting 1.1762 2.6383 0.7299
+
+BEST MODEL
+----------
+Linear Regression
+  R2   = 0.7527
+  MAE  = 1.4725 Lakhs
+  RMSE = 2.5245 Lakhs
+
+TOP IMPORTANT FEATURES
+----------------------
+                Feature  Importance
+          Present_Price      3.7445
+       Fuel_Type_Diesel      1.1974
+                Car_Age      0.9561
+          Fuel_Type_CNG      0.9450
+    Transmission_Manual      0.7867
+ Transmission_Automatic      0.7867
+    Selling_type_Dealer      0.6511
+Selling_type_Individual      0.6511
+             Driven_kms      0.4123
+       Fuel_Type_Petrol      0.2525
+
+MAIN OBSERVATIONS
+-----------------
+  - Present_Price dominates: correlation +0.88 with the
+    selling price and the largest model importance.
+  - Car_Age shows a negative relationship (-0.23): older cars
+    are associated with lower prices (depreciation).
+  - Driven_kms alone is weak here (+0.03) - its effect only
+    makes sense together with other features.
+  - Dealer and Automatic categories are associated with higher average
+    prices, but both groups are imbalanced (see limitations).
+  - Selling_Price is right-skewed (skewness 2.54): most cars are cheap,
+    a few are expensive.
+
+LIMITATIONS
+-----------
+  - Small dataset: only 299 rows after duplicate removal.
+  - Very few CNG vehicles (2) and automatics (39);
+    category averages for these groups are unreliable.
+  - No horsepower, brand-goodwill or advertising-spend data exists in
+    the dataset; no such factor was invented.
+  - Car_Name excluded due to high cardinality (98 unique labels,
+    including motorcycles).
+  - Metrics depend on this particular train/test split.
+  - Correlation does not prove causation; findings are associations
+    within this dataset only.
+
+FILES PRODUCED BY THE PROJECT
+-----------------------------
+  car data.csv (original), df_features.csv (engineered),
+  model_training.py, model_comparison.csv, car_price_model.pkl,
+  predictions.csv, feature_importance.csv, category_price_analysis.csv,
+  business_insights.txt, model_report.txt, charts/ (14 PNG charts)

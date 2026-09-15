@@ -1,0 +1,87 @@
+CAR PRICE PREDICTION - BUSINESS INSIGHTS
+=========================================
+(All numbers come from the actual dataset of 299 used vehicles
+and the models trained in Step 5. Correlation shows relationships,
+NOT causes.)
+
+1. BEST MODEL
+-------------
+Linear Regression achieved the best results on unseen test data:
+R2 = 0.7527, MAE = 1.47 Lakhs, RMSE = 2.52 Lakhs.
+The model explains about 75% of the variation in
+selling prices, with an average error of roughly 1.5 Lakhs.
+
+2. MOST IMPORTANT PRICE FACTORS
+-------------------------------
+The most influential feature is Present_Price: the car's current
+showroom price is the strongest driver of its resale value. The next
+most influential factors are:
+  - Present_Price (importance 3.74, raises price)
+  - Fuel_Type_Diesel (importance 1.20, raises price)
+  - Car_Age (importance 0.96, lowers price)
+  - Fuel_Type_CNG (importance 0.94, lowers price)
+  - Transmission_Manual (importance 0.79, lowers price)
+
+3. NUMERICAL RELATIONSHIPS
+--------------------------
+  - Present_Price: correlation +0.88 - a higher current
+    showroom price is strongly associated with a higher selling price.
+  - Car_Age: correlation -0.23 - older vehicles show a
+    relationship with LOWER selling prices (depreciation).
+  - Driven_kms: correlation +0.03 - surprisingly weak in this
+    dataset; usage alone does not explain much price variation here.
+  - Owner: almost no measurable relationship in this dataset
+    (-0.09) - only a handful of cars had previous owners.
+
+4. CATEGORY-LEVEL FINDINGS
+--------------------------
+  - Fuel type: Diesel cars average 10.10 L vs Petrol
+    3.26 L (CNG only 2 vehicles - not a reliable average).
+  - Transmission: Automatic cars average 9.07 L vs Manual
+    3.92 L, but only 39 automatics exist in the data.
+  - Seller type: Dealer sales average 6.63 L vs Individual
+    0.87 L - individuals in this dataset sell
+    much cheaper cars on average.
+
+5. PREDICTION ACCURACY
+----------------------
+  - Mean absolute error on the test set: 1.47 Lakhs.
+  - Largest single error: 11.44 Lakhs (typically an
+    expensive or unusual vehicle).
+  - The model is most accurate for budget and mid-range cars, which
+    dominate the dataset; very expensive cars are rare and harder
+    to predict.
+
+6. MARKETING RECOMMENDATIONS (for a used-car business)
+------------------------------------------------------
+  1. Price vehicles primarily from their current market/showroom
+     value (Present_Price is the dominant factor) - a clear,
+     defensible price anchor for both buying and selling.
+  2. Price reductions should reflect vehicle age: with Car_Age
+     showing a negative relationship, refresh pricing as vehicles
+     sit longer on the lot.
+  3. Diesel vehicles in this dataset are associated with higher
+     resale values - when stocking, note that diesel stock (SUVs
+     and larger cars) targets a higher-value segment.
+  4. Dealer-channel listings dominate the higher price ranges in
+     this dataset; for individual sellers, the model can help set
+     fair expectations and reduce under-pricing (individual sales
+     averaged only 0.87 L).
+  5. Use the model as a screening tool: predicted vs asking price
+     gaps above ~1.5 Lakhs flag vehicles worth
+     negotiating or investigating.
+  6. kilometers-driven alone is a weak signal here - do not price
+     a car on mileage alone; combine it with age and present price.
+
+7. DATASET LIMITATIONS
+----------------------
+  - Only 299 rows after duplicate removal - small sample.
+  - Very few CNG vehicles (2) and few automatics (39),
+    so those averages are fragile.
+  - No horsepower, brand-goodwill or advertising-spend columns exist,
+    so no such factor could be analyzed (nothing was fabricated).
+  - Car_Name (98 unique models, including bikes) was excluded from
+    the model because one-hot encoding it would invite overfitting.
+  - Results can vary with a different train/test split.
+  - All findings are associations within THIS dataset - correlation
+    does not prove causation.

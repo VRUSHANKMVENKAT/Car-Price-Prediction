@@ -1,0 +1,31 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- Environment & secrets ----
+.env
+.env.*
+*.pem
+secrets.toml
+.streamlit/secrets.toml
+
+# ---- IDE / editor caches ----
+.vscode/
+.idea/
+*.swp
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Project runtime artifacts (safe to exclude) ----
+streamlit.log
+nohup.out
+
+# ---- Local tooling metadata ----
+.freebuff/
