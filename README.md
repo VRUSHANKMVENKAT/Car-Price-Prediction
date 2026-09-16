@@ -2,6 +2,56 @@
 
 A complete, beginner-friendly machine learning project that estimates the **selling price of a used vehicle** from its characteristics — from data cleaning to a deployed **Streamlit web application**.
 
+![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
+![pandas](https://img.shields.io/badge/pandas-150458?style=flat-square&logo=pandas&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)
+![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?style=flat-square)
+![Seaborn](https://img.shields.io/badge/Seaborn-3776AB?style=flat-square)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)
+
+## ✨ Key Features
+
+- 🔮 **Instant price estimation** — enter vehicle details and get an estimated selling price in Lakhs with Indian rupee formatting
+- 📊 **14 exploratory visualizations** — price distributions, feature relationships, category comparisons, correlation heatmap
+- 🤖 **Three regression models compared** — Linear Regression, Random Forest and Gradient Boosting, evaluated with MAE / RMSE / R²
+- 🔍 **Model transparency** — feature influence analysis, error distribution and actual-vs-predicted charts
+- 💼 **Business insights** — pricing factors and market observations derived from the data, with honest limitations
+
+---
+
+## 📸 Application Preview
+
+### 🏠 Home
+
+The landing page — hero section with the application's purpose and the "ML MODEL READY" status indicator.
+
+![Car Price Prediction Home](screenshots/home.png)
+
+### 🚗 Predict Your Car's Price
+
+The input form — vehicle details (price, kilometers, owners, age, fuel, selling type, transmission) grouped in the sidebar.
+
+![Prediction Form](screenshots/prediction-form.png)
+
+### 💰 Prediction Result
+
+A real model prediction (6.0 Lakh showroom price, 30,000 km, 5-year-old Petrol, Dealer, Manual) — estimated price, an uncertainty range based on the model's test-set error, and the vehicle summary.
+
+![Prediction Result](screenshots/prediction-result.png)
+
+### 📊 Market Insights
+
+The exploratory analysis gallery — price distribution, feature relationships, category comparisons and model insights across four tabs.
+
+![Market Insights](screenshots/market-insights.png)
+
+### 🤖 Model Performance
+
+Test-set metrics (R², MAE, RMSE) loaded dynamically from `model_comparison.csv`, with the full model comparison table.
+
+![Model Performance](screenshots/model-performance.png)
+
 ---
 
 ## 1. Project Overview
