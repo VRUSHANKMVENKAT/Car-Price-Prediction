@@ -1,7 +1,8 @@
 # ============================================================
-# CAR PRICE PREDICTOR - Streamlit Web Application (UI v2)
+# CAR PRICE PREDICTOR - Streamlit Web Application (UI v3)
 # ------------------------------------------------------------
-# Design pass: premium automotive analytics look & feel.
+# Design pass: warm neutral automotive look & feel with a
+# 4-step guided estimate flow (Back moves exactly one step).
 #
 # FUNCTIONALITY IS UNCHANGED: this app LOADS the trained
 # pipeline from Step 5 (car_price_model.pkl), never retrains,
@@ -31,31 +32,67 @@ FEATURE_COLUMNS = ["Present_Price", "Driven_kms", "Owner", "Car_Age",
 
 NAV_PAGES = ["Predict Price", "Market Insights", "Model Performance", "About"]
 
+# Highest Present_Price observed in the training data (Lakhs).
+# Used only for an honest "you are extrapolating" note - the
+# model itself is untouched and will still receive any input.
+TRAINING_MAX_PRESENT_PRICE = 92.6
+
+WIZARD_STEPS = ["Vehicle Basics", "Usage & History", "Specifications",
+                "Review & Estimate"]
+
 # ------------------------------------------------------------
-# DESIGN SYSTEM (single style block - premium dark automotive)
+# DESIGN SYSTEM (single style block - warm neutral automotive)
 # ------------------------------------------------------------
 CSS = """
 <style>
 /* ---------- Design tokens ---------- */
 :root {
-  --bg: #0d1017;            /* near-black charcoal   */
-  --surface: #151a23;       /* card surface          */
-  --surface-2: #1b212c;     /* raised surface        */
-  --border: #262e3b;
-  --text: #f2f4f8;          /* off-white             */
-  --text-dim: #9aa4b2;      /* neutral gray          */
-  --accent: #e5484d;        /* racing red (CTA only) */
-  --accent-soft: rgba(229, 72, 77, 0.12);
-  --ok: #46c98b;
+  --bg: #f6f5f2;            /* warm off-white        */
+  --surface: #ffffff;       /* card surface          */
+  --surface-2: #fbfaf8;     /* raised/soft surface   */
+  --border: #e6e3dc;        /* soft gray border      */
+  --text: #23272f;          /* charcoal (not black)  */
+  --text-dim: #5b6472;      /* medium neutral gray   */
+  --accent: #b23a2f;        /* muted brick red       */
+  --accent-strong: #972e24; /* hover state           */
+  --accent-soft: rgba(178, 58, 47, 0.08);
+  --ok: #2e7d5b;            /* muted green           */
 }
 
 /* ---------- Base typography & spacing ---------- */
 html, body, [class*="css"] {
   font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
 }
+body { background: var(--bg); color: var(--text); }
 .block-container { padding-top: 2.2rem; padding-bottom: 3rem; max-width: 1200px; }
-h1, h2, h3 { color: var(--text); letter-spacing: -0.01em; }
+
+/* Streamlit's real containers must inherit the warm light theme too,
+   otherwise the app shows its default dark background behind cards. */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] section.main,
+[data-testid="stHeader"] {
+  background: var(--bg) !important;
+  color: var(--text);
+}
+[data-testid="stHeader"] { border: none; box-shadow: none; }
+
+/* Button labels: Streamlit wraps the label in a <p>, which would
+   otherwise inherit the dim paragraph color and look faded. */
+.stButton > button p { color: inherit; margin: 0; }
+
+/* Explicit heading colors so headings can never inherit an
+   invisible color on any page, step, or rerun state. */
+h1, h2, h3, h4, h5, h6,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4 {
+  color: var(--text) !important;
+  letter-spacing: -0.01em;
+}
 p, li { color: var(--text-dim); }
+b, strong { color: var(--text); }
 a { color: var(--accent); }
 hr { border-color: var(--border) !important; }
 
@@ -77,10 +114,7 @@ hr { border-color: var(--border) !important; }
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 999px; font-size: 0.8rem; color: var(--text-dim);
 }
-.cp-status .dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--ok); box-shadow: 0 0 8px rgba(70, 201, 139, 0.8);
-}
+.cp-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
 .cp-status b { color: var(--text); font-weight: 600; }
 
 /* ---------- Cards ---------- */
@@ -88,16 +122,12 @@ hr { border-color: var(--border) !important; }
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 1.25rem 1.35rem; margin-bottom: 1rem;
 }
-.cp-card-title {
-  color: var(--text); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.15rem;
-}
+.cp-card-title { color: var(--text); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.15rem; }
 .cp-card-sub { color: var(--text-dim); font-size: 0.85rem; }
 
 /* ---------- Result card ---------- */
 .cp-result {
-  background:
-    radial-gradient(1200px 300px at 20% -40%, rgba(229, 72, 77, 0.16), transparent 60%),
-    linear-gradient(180deg, var(--surface-2), var(--surface));
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
   border: 1px solid var(--border); border-radius: 18px;
   padding: 2rem 2.2rem; text-align: center;
 }
@@ -131,14 +161,32 @@ hr { border-color: var(--border) !important; }
   flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   background: var(--accent-soft); color: var(--accent);
-  font-weight: 800; font-size: 0.95rem; border: 1px solid rgba(229, 72, 77, 0.35);
+  font-weight: 800; font-size: 0.95rem; border: 1px solid rgba(178, 58, 47, 0.30);
 }
 .cp-step .t { color: var(--text); font-weight: 700; font-size: 0.98rem; }
 .cp-step .d { color: var(--text-dim); font-size: 0.88rem; margin-top: 0.1rem; line-height: 1.45; }
 
+/* ---------- Wizard step indicator ---------- */
+.cp-wiz-steps { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.4rem 0 1.1rem 0; }
+.cp-wchip {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.4rem 0.85rem; border: 1px solid var(--border);
+  border-radius: 999px; font-size: 0.8rem; color: var(--text-dim);
+  background: var(--surface-2);
+}
+.cp-wchip .n {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.72rem; background: var(--border); color: var(--text);
+}
+.cp-wchip.active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.cp-wchip.active .n { background: var(--accent); color: #ffffff; }
+.cp-wchip.done .n { background: var(--ok); color: #ffffff; }
+@media (max-width: 640px) { .cp-wchip { padding: 0.32rem 0.6rem; font-size: 0.72rem; } }
+
 /* ---------- Sidebar ---------- */
 section[data-testid="stSidebar"] {
-  background: #0a0d13; border-right: 1px solid var(--border);
+  background: var(--surface-2); border-right: 1px solid var(--border);
 }
 section[data-testid="stSidebar"] .cp-brand {
   font-weight: 800; letter-spacing: 0.22em; font-size: 0.78rem;
@@ -146,11 +194,6 @@ section[data-testid="stSidebar"] .cp-brand {
 }
 section[data-testid="stSidebar"] .cp-brand span { color: var(--accent); }
 section[data-testid="stSidebar"] hr { margin: 0.4rem 0 0.9rem 0; }
-section[data-testid="stSidebar"] .cp-group {
-  color: var(--text-dim); font-size: 0.7rem; font-weight: 700;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  margin: 1rem 0 0.15rem 0;
-}
 section[data-testid="stSidebar"] .block-container { padding-top: 1.4rem; }
 
 /* Nav radio -> clean vertical pills */
@@ -158,29 +201,41 @@ section[data-testid="stSidebar"] div[role="radiogroup"] { gap: 0.25rem; }
 section[data-testid="stSidebar"] div[role="radiogroup"] label {
   background: transparent; border: 1px solid transparent;
   border-radius: 10px; padding: 0.45rem 0.7rem; margin: 0;
+  color: var(--text-dim);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 section[data-testid="stSidebar"] div[role="radiogroup"] label:hover { background: var(--surface); }
-section[data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"],
 section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
-  background: var(--surface-2); border-color: var(--border);
+  background: var(--surface); border-color: var(--border); color: var(--text);
 }
 
-/* ---------- CTA button ---------- */
+/* ---------- Buttons (high contrast, non-neon) ---------- */
 .stButton > button {
-  width: 100%; border: none; border-radius: 12px;
-  background: var(--accent); color: #ffffff !important;
-  font-weight: 700; font-size: 1rem; padding: 0.7rem 1rem;
-  box-shadow: 0 6px 18px rgba(229, 72, 77, 0.28);
-  transition: transform 0.12s ease, filter 0.12s ease;
+  width: 100%; border-radius: 12px; font-weight: 700; font-size: 1rem;
+  padding: 0.7rem 1rem; transition: transform 0.12s ease, background 0.12s ease,
+  border-color 0.12s ease;
 }
-.stButton > button:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.stButton > button:active { transform: translateY(0); }
+.stButton > button[kind="primary"] {
+  background: var(--accent); color: #ffffff !important; border: 1px solid var(--accent);
+  box-shadow: 0 4px 14px rgba(178, 58, 47, 0.22);
+}
+.stButton > button[kind="primary"]:hover {
+  background: var(--accent-strong); border-color: var(--accent-strong);
+  color: #ffffff !important; transform: translateY(-1px);
+}
+.stButton > button[kind="primary"]:active { transform: translateY(0); }
+.stButton > button[kind="primary"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stButton > button[kind="secondary"], .stButton > button:not([kind="primary"]) {
+  background: var(--surface); color: var(--text) !important; border: 1px solid var(--border);
+}
+.stButton > button[kind="secondary"]:hover, .stButton > button:not([kind="primary"]):hover {
+  border-color: var(--text-dim); background: var(--surface-2); color: var(--text) !important;
+}
 
 /* ---------- Misc polish ---------- */
 .cp-empty {
   border: 1px dashed var(--border); border-radius: 16px;
-  padding: 3rem 1.5rem; text-align: center;
+  padding: 3rem 1.5rem; text-align: center; background: var(--surface-2);
 }
 .cp-empty .big { color: var(--text); font-weight: 700; font-size: 1.1rem; }
 .cp-empty .small { color: var(--text-dim); font-size: 0.9rem; margin-top: 0.3rem; }
@@ -260,6 +315,20 @@ def to_lakhs_rupees(price_in_lakhs, symbol="₹"):
     return f"{symbol}{text}"
 
 
+def format_price(price_in_lakhs):
+    """Human price: ₹6.39 Lakh / ₹18.50 Lakh / ₹1.25 Crore."""
+    if price_in_lakhs >= 100:
+        return f"₹{price_in_lakhs / 100:.2f} Crore"
+    return f"₹{price_in_lakhs:.2f} Lakh"
+
+
+def price_input_caption(price_in_lakhs):
+    """Readable caption under the price slider, in Indian units."""
+    return (f"You selected {format_price(price_in_lakhs)} "
+            f"({to_lakhs_rupees(price_in_lakhs)}) · "
+            f"you can go up to {format_price(300.0)}")
+
+
 def chart_path(filename):
     path = os.path.join(CHARTS_DIR, filename)
     return path if os.path.exists(path) else None
@@ -282,7 +351,7 @@ def best_model_row():
 
 
 # ------------------------------------------------------------
-# SIDEBAR: brand, navigation, vehicle inputs, CTA
+# SIDEBAR: brand + navigation (vehicle inputs live in the wizard)
 # ------------------------------------------------------------
 with st.sidebar:
     st.markdown('<div class="cp-brand">CAR PRICE <span>PREDICTOR</span></div>',
@@ -291,43 +360,15 @@ with st.sidebar:
 
     page = st.radio("Navigation", NAV_PAGES, label_visibility="collapsed")
 
-    st.markdown('<div class="cp-group">Vehicle Basics</div>',
-                unsafe_allow_html=True)
-    present_price = st.slider(
-        "Present Price (₹ Lakhs)", min_value=0.5, max_value=50.0,
-        value=6.0, step=0.1, key="pp",
-        help="Current showroom price of a NEW version of this car. "
-             "1 Lakh = ₹100,000.")
-    driven_kms = st.slider(
-        "Kilometers Driven", min_value=0, max_value=300000,
-        value=30000, step=5000, key="kms",
-        help="Total distance the vehicle has been driven.")
-
-    st.markdown('<div class="cp-group">Ownership & Age</div>',
-                unsafe_allow_html=True)
-    owner = st.selectbox(
-        "Previous Owners", options=[0, 1, 2, 3], index=0,
-        help="Training data mainly observed 0, 1 and 3 previous owners; "
-             "2 is offered as a user-friendly option but is an "
-             "extrapolation beyond the observed categories.")
-    car_age = st.slider("Car Age (Years)", min_value=0, max_value=30,
-                        value=5, step=1, key="age")
-
-    st.markdown('<div class="cp-group">Specifications</div>',
-                unsafe_allow_html=True)
-    fuel_type = st.selectbox("Fuel Type", options=["Petrol", "Diesel", "CNG"])
-    selling_type = st.selectbox("Selling Type", options=["Dealer", "Individual"])
-    transmission = st.selectbox("Transmission", options=["Manual", "Automatic"])
-
     st.divider()
-    predict_clicked = st.button("Estimate Price", use_container_width=True)
-
-    if page != "Predict Price":
-        st.caption("Switch to “Predict Price” to review or change the "
-                   "vehicle details used for the estimate.")
+    if page == "Predict Price":
+        st.caption("Answer a few questions about the car and we'll "
+                   "estimate its value.")
+    else:
+        st.caption("Open “Predict Price” to estimate a car's value.")
 
 # ------------------------------------------------------------
-# SHARED: hero
+# SHARED: hero, footer
 # ------------------------------------------------------------
 def render_hero():
     st.markdown(
@@ -349,7 +390,7 @@ def render_footer():
     st.markdown(
         """
         <div class="cp-footer">
-          <div><b style="color:#f2f4f8">Car Price Predictor</b><br>
+          <div><b>Car Price Predictor</b><br>
           Machine Learning · Vehicle Analytics</div>
           <div>Built with Python, Streamlit &amp; Machine Learning</div>
         </div>
@@ -358,163 +399,334 @@ def render_footer():
     )
 
 
+# ------------------------------------------------------------
+# WIZARD STATE (survives reruns; can never leave 0..3)
+# ------------------------------------------------------------
+st.session_state.setdefault("wizard_step", 0)
+st.session_state["wizard_step"] = max(0, min(int(st.session_state["wizard_step"]), 3))
+
+
+def _persist(key):
+    """on_change callback: mirror a widget's value into a 'saved_' key.
+
+    Streamlit deletes a widget's session state whenever that widget is not
+    rendered on a run (which happens on every other wizard step). Without
+    this mirror, going Back or clicking Estimate after navigating would
+    silently reset the form to defaults.
+    """
+    def _cb():
+        st.session_state[f"saved_{key}"] = st.session_state[key]
+    return _cb
+
+
+def saved_value(key, default):
+    """Latest known value for a wizard control (survives step changes)."""
+    return st.session_state.get(f"saved_{key}", default)
+
+
+def render_wizard_steps(current):
+    chips = []
+    for i, name in enumerate(WIZARD_STEPS):
+        cls = "cp-wchip"
+        if i == current:
+            cls += " active"
+        elif i < current:
+            cls += " done"
+        chips.append(f'<span class="{cls}"><span class="n">{i + 1}</span>{name}</span>')
+    st.markdown('<div class="cp-wiz-steps">' + "".join(chips) + "</div>",
+                unsafe_allow_html=True)
+
+
 # ============================================================
 # PAGE: PREDICT PRICE
 # ============================================================
 if page == "Predict Price":
     render_hero()
     st.write("")
-    st.subheader("Estimate Your Car's Value")
-    st.write("Enter the vehicle details in the sidebar to generate an "
-             "estimated market price.")
 
-    if predict_clicked:
-        # ---- Input validation (friendly messages, details kept) ----
-        valid = True
-        if present_price <= 0:
-            st.error("Present Price must be greater than 0. "
-                     "Please check the vehicle details and try again.")
-            valid = False
-        if driven_kms < 0 or car_age < 0 or owner < 0:
-            st.error("Vehicle details cannot be negative. "
-                     "Please check the vehicle details and try again.")
-            valid = False
+    step = st.session_state["wizard_step"]
+    render_wizard_steps(step)
 
-        if valid:
-            user_data = pd.DataFrame([{
-                "Present_Price": float(present_price),
-                "Driven_kms": int(driven_kms),
-                "Owner": int(owner),
-                "Car_Age": int(car_age),
-                "Fuel_Type": fuel_type,
-                "Selling_type": selling_type,
-                "Transmission": transmission,
-            }], columns=FEATURE_COLUMNS)
+    # --------------------------------------------------------
+    # STEP 1 — Vehicle Basics
+    # --------------------------------------------------------
+    if step == 0:
+        st.subheader("Tell us about your car")
+        st.write("What is the current showroom price of a **new** version "
+                 "of this car?")
+        pp_kwargs = dict(step=0.5, key="pp", on_change=_persist("pp"))
+        if "pp" not in st.session_state:            # restore after Back
+            pp_kwargs["value"] = float(saved_value("pp", 6.0))
+        present_price = st.slider(
+            "Present Price (₹ Lakhs)", min_value=0.5, max_value=300.0,
+            help="1 Lakh = ₹100,000 and 1 Crore = ₹10,000,000. "
+                 "You can select up to ₹3 Crore.", **pp_kwargs)
+        st.caption(price_input_caption(present_price))
+        if present_price > TRAINING_MAX_PRESENT_PRICE:
+            st.caption("Heads-up: the most expensive car in the training "
+                       f"data was {format_price(TRAINING_MAX_PRESENT_PRICE)} — "
+                       "above that, the estimate is an extrapolation.")
 
-            try:
-                with st.spinner("Analyzing vehicle details…"):
-                    prediction = float(model.predict(user_data)[0])
-                st.session_state["last_prediction"] = {
-                    "value": prediction,
-                    "inputs": {
-                        "Present Price": f"{present_price:g} Lakhs",
-                        "Kilometers Driven": f"{int(driven_kms):,} km",
-                        "Car Age": f"{int(car_age)} years",
-                        "Previous Owners": int(owner),
-                        "Fuel Type": fuel_type,
-                        "Selling Type": selling_type,
-                        "Transmission": transmission,
-                    },
-                }
-            except Exception as exc:
-                st.error("Something went wrong while generating the estimate. "
-                         "Please check the vehicle details and try again.")
-                with st.expander("Technical details"):
-                    st.code(repr(exc))
+    # --------------------------------------------------------
+    # STEP 2 — Usage & History
+    # --------------------------------------------------------
+    elif step == 1:
+        st.subheader("How has it been used?")
+        st.write("A few quick details about the car's history.")
+        kms_kwargs = dict(step=5000, key="kms", on_change=_persist("kms"))
+        if "kms" not in st.session_state:
+            kms_kwargs["value"] = int(saved_value("kms", 30000))
+        driven_kms = st.slider(
+            "Kilometers Driven", min_value=0, max_value=300000,
+            help="How far has it been driven in total?", **kms_kwargs)
+        owner_kwargs = dict(key="owner", on_change=_persist("owner"))
+        if "owner" not in st.session_state:
+            owner_kwargs["index"] = [0, 1, 2, 3].index(int(saved_value("owner", 0)))
+        owner = st.selectbox(
+            "Previous Owners", options=[0, 1, 2, 3],
+            help="How many people owned the car before you? The training "
+                 "data mainly observed 0, 1 and 3; 2 is offered for "
+                 "completeness but is an extrapolation.", **owner_kwargs)
+        age_kwargs = dict(step=1, key="age", on_change=_persist("age"))
+        if "age" not in st.session_state:
+            age_kwargs["value"] = int(saved_value("age", 5))
+        car_age = st.slider(
+            "Car Age (Years)", min_value=0, max_value=30,
+            help="How old is the car today?", **age_kwargs)
 
-    # ---- Result / empty state ----
-    result = st.session_state.get("last_prediction")
+    # --------------------------------------------------------
+    # STEP 3 — Specifications
+    # --------------------------------------------------------
+    elif step == 2:
+        st.subheader("Which fuel does it use?")
+        st.write("Fuel, transmission and how the car is being sold.")
+        fuel_kwargs = dict(key="fuel_type", on_change=_persist("fuel_type"))
+        if "fuel_type" not in st.session_state:
+            fuel_kwargs["index"] = ["Petrol", "Diesel", "CNG"].index(
+                saved_value("fuel_type", "Petrol"))
+        fuel_type = st.selectbox("Fuel Type", options=["Petrol", "Diesel", "CNG"],
+                                 **fuel_kwargs)
+        sell_kwargs = dict(key="selling_type", on_change=_persist("selling_type"))
+        if "selling_type" not in st.session_state:
+            sell_kwargs["index"] = ["Dealer", "Individual"].index(
+                saved_value("selling_type", "Dealer"))
+        selling_type = st.selectbox(
+            "Selling Type", options=["Dealer", "Individual"],
+            help="Are you selling through a dealer or as an individual?",
+            **sell_kwargs)
+        trans_kwargs = dict(key="transmission", on_change=_persist("transmission"))
+        if "transmission" not in st.session_state:
+            trans_kwargs["index"] = ["Manual", "Automatic"].index(
+                saved_value("transmission", "Manual"))
+        transmission = st.selectbox("Transmission", options=["Manual", "Automatic"],
+                                    **trans_kwargs)
 
-    if result:
-        pred = result["value"]
+    # --------------------------------------------------------
+    # STEP 4 — Review & Estimate
+    # --------------------------------------------------------
+    else:
+        st.subheader("Ready to estimate")
+        st.write("Here's what you've told us about the car. Click "
+                 "**Estimate Price** when you're happy with it.")
+
+        present_price = float(saved_value("pp", 6.0))
+        driven_kms = int(saved_value("kms", 30000))
+        owner = int(saved_value("owner", 0))
+        car_age = int(saved_value("age", 5))
+        fuel_type = saved_value("fuel_type", "Petrol")
+        selling_type = saved_value("selling_type", "Dealer")
+        transmission = saved_value("transmission", "Manual")
+
+        # ---- Review of entered values (read-only) ----
+        review = [
+            ("Present Price", format_price(present_price)),
+            ("Kilometers Driven", f"{int(driven_kms):,} km"),
+            ("Car Age", f"{int(car_age)} years"),
+            ("Previous Owners", int(owner)),
+            ("Fuel Type", fuel_type),
+            ("Selling Type", selling_type),
+            ("Transmission", transmission),
+        ]
+        r1, r2, r3, r4 = st.columns(4)
+        containers = [r1, r2, r3, r4]
+        for idx, (label, value) in enumerate(review):
+            with containers[idx % 4]:
+                st.markdown(
+                    f'<div class="cp-kpi"><div class="k-label">{label}</div>'
+                    f'<div class="k-value" style="font-size:1.05rem">{value}</div>'
+                    f'</div>', unsafe_allow_html=True)
+
+        # ---- Estimate button (high-contrast primary CTA) ----
         st.write("")
-        if pred < 0:
-            st.warning(
-                "The model produced a value outside the realistic price "
-                "range for these inputs. Try entering vehicle details "
-                "closer to the dataset's observed range."
-            )
+        estimate_clicked = st.button("Estimate Price", type="primary",
+                                     use_container_width=True)
+
+        if estimate_clicked:
+            # ---- Input validation (friendly messages, details kept) ----
+            valid = True
+            if present_price <= 0:
+                st.error("Present Price must be greater than 0. "
+                         "Please check the vehicle details and try again.")
+                valid = False
+            if driven_kms < 0 or car_age < 0 or owner < 0:
+                st.error("Vehicle details cannot be negative. "
+                         "Please check the vehicle details and try again.")
+                valid = False
+
+            if valid:
+                user_data = pd.DataFrame([{
+                    "Present_Price": float(present_price),
+                    "Driven_kms": int(driven_kms),
+                    "Owner": int(owner),
+                    "Car_Age": int(car_age),
+                    "Fuel_Type": fuel_type,
+                    "Selling_type": selling_type,
+                    "Transmission": transmission,
+                }], columns=FEATURE_COLUMNS)
+
+                try:
+                    with st.spinner("Analyzing vehicle details…"):
+                        prediction = float(model.predict(user_data)[0])
+                    st.session_state["last_prediction"] = {
+                        "value": prediction,
+                        "inputs": {
+                            "Present Price": format_price(present_price),
+                            "Kilometers Driven": f"{int(driven_kms):,} km",
+                            "Car Age": f"{int(car_age)} years",
+                            "Previous Owners": int(owner),
+                            "Fuel Type": fuel_type,
+                            "Selling Type": selling_type,
+                            "Transmission": transmission,
+                        },
+                    }
+                except Exception as exc:
+                    st.error("Something went wrong while generating the "
+                             "estimate. Please check the vehicle details "
+                             "and try again.")
+                    with st.expander("Technical details"):
+                        st.code(repr(exc))
+
+        # ---- Result / empty state (persists across reruns) ----
+        result = st.session_state.get("last_prediction")
+
+        if result:
+            pred = result["value"]
+            st.write("")
+            if pred < 0:
+                st.warning(
+                    "The model produced a value outside the realistic price "
+                    "range for these inputs. Try entering vehicle details "
+                    "closer to the dataset's observed range."
+                )
+                st.markdown(
+                    f'<div class="cp-result"><div class="label">'
+                    f'Estimated Market Value</div>'
+                    f'<div class="price">{format_price(pred)}</div>'
+                    f'<div class="sub">Raw model output (shown unmodified)'
+                    f'</div></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                best = best_model_row()
+                mae = float(best["MAE"]) if best is not None else None
+                low, high = ((pred - mae, pred + mae) if mae else (None, None))
+
+                st.markdown(
+                    f"""
+                    <div class="cp-result">
+                      <div class="label">Your Estimated Car Value</div>
+                      <div class="price">{format_price(pred)}</div>
+                      <div class="sub">Estimated resale value based on the
+                      information provided · {to_lakhs_rupees(pred)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                st.write("")
+                k1, k2, k3 = st.columns(3)
+                with k1:
+                    st.markdown(
+                        '<div class="cp-kpi accent"><div class="k-label">'
+                        'Estimated Price</div>'
+                        f'<div class="k-value">{format_price(pred)}</div>'
+                        f'<div class="k-note">{to_lakhs_rupees(pred)}</div></div>',
+                        unsafe_allow_html=True)
+                with k2:
+                    st.markdown(
+                        '<div class="cp-kpi"><div class="k-label">Vehicle Age</div>'
+                        f'<div class="k-value">{int(car_age)} Years</div>'
+                        f'<div class="k-note">as entered</div></div>',
+                        unsafe_allow_html=True)
+                with k3:
+                    st.markdown(
+                        '<div class="cp-kpi"><div class="k-label">Mileage</div>'
+                        f'<div class="k-value">{int(driven_kms):,} km</div>'
+                        f'<div class="k-note">as entered</div></div>',
+                        unsafe_allow_html=True)
+
+                if low is not None:
+                    st.write("")
+                    st.markdown(
+                        f'<div class="cp-note">Estimated range: '
+                        f'<b>{format_price(max(low, 0))} – {format_price(high)}</b>'
+                        f' &nbsp;·&nbsp; based on the model’s typical test-set '
+                        f'error (MAE ±{mae:.2f} Lakh). Actual prices vary with '
+                        f'condition, location and demand.</div>',
+                        unsafe_allow_html=True,
+                    )
+
+            # ---- Vehicle summary ----
+            st.write("")
+            st.markdown('<div class="cp-card-title">Vehicle Summary</div>',
+                        unsafe_allow_html=True)
+            summary = result["inputs"]
+            s1, s2, s3, s4 = st.columns(4)
+            cells = list(summary.items())
+            for idx, (label, value) in enumerate(cells):
+                with [s1, s2, s3, s4][idx % 4]:
+                    st.markdown(
+                        f'<div class="cp-kpi"><div class="k-label">{label}</div>'
+                        f'<div class="k-value" style="font-size:1.05rem">{value}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True)
+
+            st.write("")
             st.markdown(
-                f'<div class="cp-result"><div class="label">'
-                f'Estimated Market Value</div>'
-                f'<div class="price">₹&nbsp;{pred:.2f}&nbsp;<span>Lakh</span></div>'
-                f'<div class="sub">Raw model output (shown unmodified)</div></div>',
+                '<div class="cp-note">Note: This is an estimated value generated '
+                'by a machine-learning model. Actual market prices may vary based '
+                'on condition, location, demand, and other factors.</div>',
                 unsafe_allow_html=True,
             )
         else:
-            best = best_model_row()
-            mae = float(best["MAE"]) if best is not None else None
-            low, high = (pred - mae, pred + mae) if mae else (None, None)
-
+            st.write("")
             st.markdown(
-                f"""
-                <div class="cp-result">
-                  <div class="label">Estimated Market Value</div>
-                  <div class="price">₹&nbsp;{pred:.2f}&nbsp;<span>Lakh</span></div>
-                  <div class="sub">Estimated resale value based on the
-                  information provided · {to_lakhs_rupees(pred)}</div>
+                """
+                <div class="cp-empty">
+                  <div class="big">Ready to find your car's estimated value?</div>
+                  <div class="small">Click “Estimate Price” above and the result
+                  will appear here.</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            st.write("")
-            k1, k2, k3 = st.columns(3)
-            with k1:
-                st.markdown(
-                    '<div class="cp-kpi accent"><div class="k-label">'
-                    'Estimated Price</div>'
-                    f'<div class="k-value">₹{pred:.2f}L</div>'
-                    f'<div class="k-note">{to_lakhs_rupees(pred)}</div></div>',
-                    unsafe_allow_html=True)
-            with k2:
-                st.markdown(
-                    '<div class="cp-kpi"><div class="k-label">Vehicle Age</div>'
-                    f'<div class="k-value">{int(car_age)} Years</div>'
-                    f'<div class="k-note">as entered</div></div>',
-                    unsafe_allow_html=True)
-            with k3:
-                st.markdown(
-                    '<div class="cp-kpi"><div class="k-label">Mileage</div>'
-                    f'<div class="k-value">{int(driven_kms):,} km</div>'
-                    f'<div class="k-note">as entered</div></div>',
-                    unsafe_allow_html=True)
-
-            if low is not None:
-                st.write("")
-                st.markdown(
-                    f'<div class="cp-note">Estimated range: '
-                    f'<b style="color:#f2f4f8">₹{max(low, 0):.1f}L – ₹{high:.1f}L</b>'
-                    f' &nbsp;·&nbsp; based on the model’s typical test-set '
-                    f'error (MAE ±{mae:.2f} Lakh). Actual prices vary with '
-                    f'condition, location and demand.</div>',
-                    unsafe_allow_html=True,
-                )
-
-        # ---- Vehicle summary ----
-        st.write("")
-        st.markdown('<div class="cp-card-title">Vehicle Summary</div>',
-                    unsafe_allow_html=True)
-        summary = result["inputs"]
-        s1, s2, s3, s4 = st.columns(4)
-        cells = list(summary.items())
-        for idx, (label, value) in enumerate(cells):
-            with [s1, s2, s3, s4][idx % 4]:
-                st.markdown(
-                    f'<div class="cp-kpi"><div class="k-label">{label}</div>'
-                    f'<div class="k-value" style="font-size:1.05rem">{value}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True)
-
-        st.write("")
-        st.markdown(
-            '<div class="cp-note">Note: This is an estimated value generated '
-            'by a machine-learning model. Actual market prices may vary based '
-            'on condition, location, demand, and other factors.</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.write("")
-        st.markdown(
-            """
-            <div class="cp-empty">
-              <div class="big">Ready to find your car's estimated value?</div>
-              <div class="small">Enter your vehicle details in the sidebar and
-              click “Estimate Price”.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    # --------------------------------------------------------
+    # Wizard navigation: Back = exactly one step; Back hidden on step 1
+    # --------------------------------------------------------
+    st.write("")
+    nav1, nav2 = st.columns(2)
+    with nav1:
+        if step > 0:
+            if st.button("← Back", key="wiz_back", use_container_width=True):
+                st.session_state["wizard_step"] = step - 1     # exactly one
+                st.rerun()
+    with nav2:
+        if step < 3:
+            if st.button("Continue →", type="primary", key="wiz_next",
+                         use_container_width=True):
+                st.session_state["wizard_step"] = step + 1     # exactly one
+                st.rerun()
 
     render_footer()
 
@@ -641,7 +853,7 @@ elif page == "Model Performance":
         st.markdown("#### All models tested")
         if comparison is not None:
             def highlight_best(row):
-                color = ("background-color: rgba(229, 72, 77, 0.14)"
+                color = ("background-color: rgba(178, 58, 47, 0.10)"
                          if row["R2"] == comparison["R2"].max() else "")
                 return [color] * len(row)
 
